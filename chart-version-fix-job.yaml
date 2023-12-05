@@ -1,0 +1,43 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    batch.kubernetes.io/job-tracking: ""
+  generation: 1
+  labels:
+    job-name: chart-versions-fix-job
+  name: chart-versions-fix-job
+  namespace: devtroncd
+spec:
+  activeDeadlineSeconds: 15000
+  backoffLimit: 4
+  completionMode: NonIndexed
+  completions: 1
+  parallelism: 1
+  suspend: false
+  template:
+    metadata:
+      labels:
+        job-name: chart-versions-fix-job
+    spec:
+      containers:
+        - env:
+            - name: PG_ADDR
+              value: postgresql-postgresql.devtroncd
+            - name: PG_DATABASE
+              value: orchestrator
+            - name: PG_USER
+              value: postgres
+            - name: PG_PASSWORD
+              value: XXX
+          image: quay.io/devtron/test:v1.2.7
+          imagePullPolicy: IfNotPresent
+          name: chart-sync
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: OnFailure
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
