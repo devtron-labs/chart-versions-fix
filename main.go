@@ -42,6 +42,13 @@ func main() {
 					return
 				}
 			}
+			if appStoreApplicationVersion.Latest == true {
+				err = appStoreApplicationVersionImpl.UpdateAppStoreApplicationVersion(uniqueAppStoreVersionId)
+				if err != nil {
+					logger.Println("error in updating application version to latest ", "err", err)
+					return
+				}
+			}
 			logger.Println("deleting app store application version by appStoreApplicationVersionId", "appStoreApplicationVersionId", appStoreApplicationVersion.Id)
 			err = appStoreApplicationVersionImpl.DeleteAppStoreApplicationVersion(appStoreApplicationVersion.Id)
 			if err != nil {

@@ -10,6 +10,7 @@ type AppStoreApplicationVersionRepository interface {
 	GetInstalledAppVersionByAppStoreApplicationVersionId(appStoreApplicationVersionId int) ([]*InstalledAppVersions, error)
 	DeleteAppStoreApplicationVersion(appStoreVersionId int) error
 	UpdateInstalledAppVersion(model *InstalledAppVersions, tx *pg.Tx) (*InstalledAppVersions, error)
+	UpdateAppStoreApplicationVersion(appStoreApplicationVersionId int) error
 }
 
 type AppStoreApplicationVersionRepositoryImpl struct {
@@ -79,7 +80,7 @@ type AppStore struct {
 
 func (impl AppStoreApplicationVersionRepositoryImpl) FindAll() ([]AppStoreApplicationVersion, error) {
 	var appStoreWithVersion []AppStoreApplicationVersion
-	queryTemp := "SELECT t.id,t.name,t.version, t.app_store_id FROM ( SELECT s.*, COUNT(*) OVER (PARTITION BY s.app_store_id,s.name, s.version) AS qty FROM app_store_application_version s )  t where (t.qty>1);"
+	queryTemp := "SELECT t.id,t.name,t.version, t.app_store_id,t.latest FROM ( SELECT s.*, COUNT(*) OVER (PARTITION BY s.app_store_id,s.name, s.version) AS qty FROM app_store_application_version s )  t where (t.qty>1);"
 	_, err := impl.dbConnection.Query(&appStoreWithVersion, queryTemp, true)
 	if err != nil {
 		return nil, err
@@ -118,4 +119,12 @@ func (impl AppStoreApplicationVersionRepositoryImpl) UpdateInstalledAppVersion(m
 		return model, err
 	}
 	return model, nil
+}
+
+func (impl AppStoreApplicationVersionRepositoryImpl) UpdateAppStoreApplicationVersion(appStoreApplicationVersionId int) error {
+	_, err := impl.dbConnection.Exec("update app_store_application_version set latest=true where id=?", appStoreApplicationVersionId)
+	if err != nil {
+		return err
+	}
+	return nil
 }
