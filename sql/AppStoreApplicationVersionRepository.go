@@ -11,6 +11,10 @@ type AppStoreApplicationVersionRepository interface {
 	DeleteAppStoreApplicationVersion(appStoreVersionId int) error
 	UpdateInstalledAppVersion(model *InstalledAppVersions, tx *pg.Tx) (*InstalledAppVersions, error)
 	UpdateAppStoreApplicationVersion(appStoreApplicationVersionId int) error
+	FindAllAppStores() ([]*AppStore, error)
+	FindChartVersionByAppStoreId(appStoreId int) ([]*AppStoreApplicationVersion, error)
+	FindAppStoreVersionByAppStoreIdAndChartVersion(appStoreId int, chartName, version string) (*AppStoreApplicationVersion, error)
+	Delete(appStores []*AppStore) error
 }
 
 type AppStoreApplicationVersionRepositoryImpl struct {
@@ -127,4 +131,63 @@ func (impl AppStoreApplicationVersionRepositoryImpl) UpdateAppStoreApplicationVe
 		return err
 	}
 	return nil
+}
+
+func (impl AppStoreApplicationVersionRepositoryImpl) FindAllAppStores() ([]*AppStore, error) {
+	var models []*AppStore
+	err := impl.dbConnection.Model(&models).Where("active = ? ", true).Select()
+	if err != nil {
+		return models, err
+	}
+	return models, nil
+}
+
+func (impl AppStoreApplicationVersionRepositoryImpl) FindChartVersionByAppStoreId(appStoreId int) ([]*AppStoreApplicationVersion, error) {
+	var appStoreWithVersion []*AppStoreApplicationVersion
+	err := impl.dbConnection.
+		Model(&appStoreWithVersion).
+		Column("app_store_application_version.version", "app_store_application_version.id").
+		Where("app_store_application_version.app_store_id = ?", appStoreId).
+		Select()
+	return appStoreWithVersion, err
+}
+
+func (impl AppStoreApplicationVersionRepositoryImpl) GetInstalledAppVersionByAppStoreId(appStoreId int) ([]*InstalledAppVersions, error) {
+	var model []*InstalledAppVersions
+	err := impl.dbConnection.Model(&model).
+		Column("installed_app_versions.*", "AppStoreApplicationVersion").
+		Where("app_store_application_version.app_store_id = ?", appStoreId).Select()
+	if err != nil {
+		return model, err
+	}
+	return model, err
+}
+
+func (impl *AppStoreApplicationVersionRepositoryImpl) FindAppStoreVersionByAppStoreIdAndChartVersion(appStoreId int, chartName, version string) (*AppStoreApplicationVersion, error) {
+	var appStoreApplicationVersion []AppStoreApplicationVersion
+	query := "select * from app_store_application_version where app_store_id = ? and name = ?  and  version = ? "
+	_, err := impl.dbConnection.Query(&appStoreApplicationVersion, query, appStoreId, chartName, version)
+	if err != nil {
+		return nil, err
+	}
+	return &appStoreApplicationVersion[0], nil
+}
+
+func (impl *AppStoreApplicationVersionRepositoryImpl) Delete(appStores []*AppStore) error {
+	err := impl.dbConnection.RunInTransaction(func(tx *pg.Tx) error {
+		for _, appStore := range appStores {
+			appStoreApplicationVersionDeleteQuery := "delete from app_store_application_version where app_store_id = ?"
+			_, err := impl.dbConnection.Exec(appStoreApplicationVersionDeleteQuery, appStore.Id)
+			if err != nil {
+				return err
+			}
+			appStoreDeleteQuery := "update app_store set active=false where id = ?"
+			_, err = impl.dbConnection.Exec(appStoreDeleteQuery, appStore.Id)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	return err
 }
